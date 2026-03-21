@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System.Collections.Generic;
+using Timberborn.BlockObjectTools;
 using Timberborn.BlockSystem;
 using Timberborn.Buildings;
 using Timberborn.EntitySystem;
@@ -23,6 +24,7 @@ namespace Calloatti.Unpath
   public static class PlacementContext
   {
     public static BlockObject CurrentValidatingObject;
+    public static bool IsPlayerPlacing = false;
   }
 
   public static class PathDetector
@@ -66,6 +68,14 @@ namespace Calloatti.Unpath
   {
     static void Prefix(BlockObject __instance) => PlacementContext.CurrentValidatingObject = __instance;
     static void Postfix() => PlacementContext.CurrentValidatingObject = null;
+  }
+
+  // Set the IsPlayerPlacing flag only when the player actually clicks to place a building
+  [HarmonyPatch(typeof(DefaultBlockObjectPlacer), nameof(DefaultBlockObjectPlacer.Place))]
+  static class DefaultBlockObjectPlacer_Place_Patch
+  {
+    static void Prefix() => PlacementContext.IsPlayerPlacing = true;
+    static void Postfix() => PlacementContext.IsPlayerPlacing = false;
   }
 
   [HarmonyPatch(typeof(BlockService), nameof(BlockService.AnyNonOverridableObjectsAt))]
@@ -120,7 +130,8 @@ namespace Calloatti.Unpath
   {
     static void Prefix(BlockObject __instance, IBlockService ____blockService, EntityService ____entityService)
     {
-      if (__instance.IsPreview || __instance.AddedToService) return;
+      // Bail out immediately if this is during save-loading (IsPlayerPlacing == false)
+      if (!PlacementContext.IsPlayerPlacing || __instance.IsPreview || __instance.AddedToService) return;
 
       foreach (var block in __instance.PositionedBlocks.GetAllBlocks())
       {
@@ -133,7 +144,12 @@ namespace Calloatti.Unpath
         {
           if (PathDetector.IsRemovablePath(objAtTile))
           {
-            toDelete.Add(objAtTile);
+            // Only delete the path if its occupation intersects with the building's occupation at this block.
+            var pathOccupation = objAtTile.PositionedBlocks.GetBlock(block.Coordinates).Occupation;
+            if (block.Occupation.Intersects(pathOccupation))
+            {
+              toDelete.Add(objAtTile);
+            }
           }
         }
 
