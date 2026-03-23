@@ -1,0 +1,12 @@
+1.0.4
+Added check for BuildingSpec
+1.0.3
+Add defensive null checking of everything
+1.0.2
+Fix crash
+Use ShowPrimaryUIEvent
+1.0.1
+Fix: do not remove path when building can be placed over path
+Fix: only intercept player placing buildings
+1.0.0
+initial release
