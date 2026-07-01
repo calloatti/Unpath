@@ -1,22 +1,17 @@
---------------------------------------------------------------------------------
-Game Version: 1.0.0.0
-Mod Version: 1.0.4
+Game Version: 1.0.0.0 - Mod Version: 1.0.4
 - Added check for BuildingSpec
 --------------------------------------------------------------------------------
-Game Version: 1.0.0.0
-Mod Version: 1.0.3
+Game Version: 1.0.0.0 - Mod Version: 1.0.3
 - Add defensive null checking of everything
 --------------------------------------------------------------------------------
-Game Version: 1.0.0.0
-Mod Version: 1.0.2
+Game Version: 1.0.0.0 - Mod Version: 1.0.2
 - Fix crash
 - Use ShowPrimaryUIEvent
 --------------------------------------------------------------------------------
-Game Version: 1.0.0.0
-Mod Version: 1.0.1
+Game Version: 1.0.0.0 - Mod Version: 1.0.1
 - Fix: do not remove path when building can be placed over path
 - Fix: only intercept player placing buildings
 --------------------------------------------------------------------------------
-Game Version: 1.0.0.0
-Mod Version: 1.0.0
+Game Version: 1.0.0.0 - Mod Version: 1.0.0
 - initial release
+--------------------------------------------------------------------------------
