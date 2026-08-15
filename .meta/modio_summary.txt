@@ -1,0 +1,1 @@
+Automatically removes 1x1 paths when placing buildings over them.
