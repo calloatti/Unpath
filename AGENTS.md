@@ -24,32 +24,33 @@ Scope is intentionally narrow:
 | Path | Purpose |
 |---|---|
 | `Version-1.0/` | The active mod version folder (source + project). Contains `Source/`, `UnPath.csproj`, `manifest.json`, `changelog.txt`, `prebuild.ps1`, `postbuild.ps1`, `CommonModSettings.props` |
-| `Version-1.0/Source/UnPathPatch.cs` | All mod code — entry point, DI config, and every Harmony patch (single file) |
+| `Version-1.0/Source/ModStarter.cs` | Entry point; `UnpathPlugin` implements `IModStarter`, applies Harmony patches |
+| `Version-1.0/Source/UnpathConfigurator.cs` | Bindito DI config; `UnpathConfigurator` binds `UnpathService` as singleton |
+| `Version-1.0/Source/UnpathService.cs` | `UnpathService` implements `ILoadableSingleton`; listens for `ShowPrimaryUIEvent` to activate mod |
+| `Version-1.0/Source/UnpathPatches.cs` | `PlacementContext`, `PathDetector`, and all 5 Harmony patches |
 | `.meta/` | Publishing metadata: workshop/mod.io names, tags, descriptions, version tracking (`workshop_version.txt` = `1.0:1.0.4`) |
 | `workshop_data.json` | Workshop upload config (backed up to repo root from the deployed mod folder on prebuild) |
 | `.scratch/` | Historical crash logs / player logs / save metadata (gitignored; kept as debug evidence) |
 | `thumbnail.jpg`, `README.md` | Root assets deployed to the mod folder |
 
-## Source Architecture (`Version-1.0/Source/UnPathPatch.cs`)
+## Source Architecture
 
-All code lives in one file. Order of types:
-
-| Type | Kind | Role |
+| File | Types | Role |
 |---|---|---|
-| `UnpathConfigurator` | `Configurator` (`[Context("Game")]`) | Bindito DI: binds `UnpathUiListener` as singleton |
-| `UnpathUiListener` | `ILoadableSingleton` | Listens for `ShowPrimaryUIEvent`; sets `PlacementContext.IsFunctional = true` (mod activates only after primary UI loads) |
-| `UnpathPlugin` | `IModStarter` | Entry point; calls `new Harmony("calloatti.unpath").PatchAll()` |
-| `PlacementContext` | `static class` | Shared state: `CurrentValidatingObject`, `IsFunctional`, and `OverriddenCoords` (the ledger) |
-| `PathDetector` | `static class` | Validation helpers: `IsExcludedObject(BlockObject)`, `IsRemovablePath(BlockObject)` |
-| `BlockObjectTool_Place_Patch` | Harmony Prefix | Clears the `OverriddenCoords` ledger right before a real placement |
-| `BlockObject_IsValid_Patch` | Harmony Prefix + Finalizer | Stores the object currently being validated; Finalizer guarantees cleanup even on exception |
-| `BlockObject_IsAlmostValid_Patch` | Harmony Prefix + Finalizer | Same as above for the "almost valid" preview path |
-| `BlockService_AnyNonOverridableObjectsAt_Patch` | Harmony Postfix | **The validation spoof** — allows placement when only paths block |
-| `BlockObject_AddToService_Patch` | Harmony Prefix | **The execution phase** — deletes the overlapped paths when the building is placed |
+| `ModStarter.cs` | `UnpathPlugin` (`IModStarter`) | Entry point; calls `new Harmony("calloatti.unpath").PatchAll()` |
+| `UnpathConfigurator.cs` | `UnpathConfigurator` (`Configurator`) | Bindito DI: binds `UnpathService` as singleton |
+| `UnpathService.cs` | `UnpathService` (`ILoadableSingleton`) | Listens for `ShowPrimaryUIEvent`; sets `PlacementContext.IsFunctional = true` |
+| `UnpathPatches.cs` | `PlacementContext` (static class) | Shared state: `CurrentValidatingObject`, `IsFunctional`, `OverriddenCoords` (ledger) |
+| | `PathDetector` (static class) | Validation helpers: `IsExcludedObject(BlockObject)`, `IsRemovablePath(BlockObject)` |
+| | `BlockObjectTool_Place_Patch` (Harmony Prefix) | Clears the `OverriddenCoords` ledger before a real placement |
+| | `BlockObject_IsValid_Patch` (Harmony Prefix + Finalizer) | Stores the object currently being validated; Finalizer guarantees cleanup |
+| | `BlockObject_IsAlmostValid_Patch` (Harmony Prefix + Finalizer) | Same as above for the "almost valid" preview path |
+| | `BlockService_AnyNonOverridableObjectsAt_Patch` (Harmony Postfix) | **The validation spoof** — allows placement when only paths block |
+| | `BlockObject_AddToService_Patch` (Harmony Prefix) | **The execution phase** — deletes the overlapped paths when the building is placed |
 
 ## How It Works (Flow)
 
-1. **Activation:** `UnpathUiListener.Load()` registers with the EventBus; on `ShowPrimaryUIEvent` it flips `PlacementContext.IsFunctional = true`. All patches early-out unless `IsFunctional`.
+1. **Activation:** `UnpathService.Load()` registers with the EventBus; on `ShowPrimaryUIEvent` it flips `PlacementContext.IsFunctional = true`. All patches early-out unless `IsFunctional`.
 2. **Validation phase:** While the game checks a placement, `BlockObject.IsValid`/`IsAlmostValid` Prefix stores the preview object in `PlacementContext.CurrentValidatingObject` (cleared by a `[HarmonyFinalizer]`). The `AnyNonOverridableObjectsAt` Postfix then runs only if the game already reported `__result == true`. It inspects every object at the tile; if the *only* blockers are removable paths (and it's not stacking the same template on itself), it sets `__result = false` and records the coordinate in `OverriddenCoords[coordinates] = Time.frameCount`.
 3. **Execution phase:** `BlockObject.AddToService` Prefix iterates the new building's footprint. For each coordinate in the ledger within 30 frames of the spoof (stale-abort guard), it fetches `__instance._blockService.GetObjectsAt(...)` and deletes any `PathSpec` object via `__instance._entityService.Delete(...)`, then removes the coordinate from the ledger.
 4. **Safety net:** `BlockObjectTool.Place` Prefix clears the ledger before each real placement so an aborted placement cannot leave ghost state that deletes paths later.
@@ -91,3 +92,8 @@ All code lives in one file. Order of types:
 ## Commands
 - Build / deploy (Debug): `dotnet build Version-1.0/UnPath.csproj`
 - There is no test project for this mod; verify in-game by placing buildings over paths in a sandbox save.
+
+## Hard Rule
+DO NOT EVER TOUCH THE DEPLOY FOLDER.
+
+BUILD DOES EVERYTHING, NEVER EVER MESS WITH THE DEPLOY PROCESS.
