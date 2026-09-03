@@ -2,7 +2,7 @@
   "Name": "UnPath",
   "Version": "1.0.6",
   "Id": "Calloatti.UnPath",
-  "MinimumGameVersion": "1.0.13.1",
+  "MinimumGameVersion": "1.1.2.4",
   "Description": "Automatically removes 1x1 paths when placing buildings over them.",
   "RequiredMods": [{"Id": "Harmony", "MinVersion": "2.4.1"}],
   "OptionalMods": []
